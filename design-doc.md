@@ -1,5 +1,7 @@
 # CarePlan Auto-Generation System — Design Document
 
+# Author: Riley Xiong
+
 ## 1. Project Overview
 
 ### Background
