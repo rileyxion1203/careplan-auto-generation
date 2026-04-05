@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CarePlan MVP</title>
+  <style>
+    :root {
+      --bg: #f7f3eb;
+      --panel: #fffdf8;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --accent: #0f766e;
+      --accent-dark: #115e59;
+      --border: #d6d3d1;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, #efe6d2 0%, transparent 30%),
+        linear-gradient(180deg, #f8f5ef 0%, #f2ede3 100%);
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 2.5rem;
+      line-height: 1.1;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: var(--muted);
+      max-width: 720px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 1.05fr 0.95fr;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+    }
+
+    form {
+      display: grid;
+      gap: 14px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 0.95rem;
+    }
+
+    input, textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font: inherit;
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      background: var(--accent);
+      color: white;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: var(--accent-dark);
+    }
+
+    .lookup-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .lookup-row input {
+      flex: 1;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #fcfbf7;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 240px;
+      margin: 0;
+    }
+
+    .status {
+      margin: 0 0 14px;
+      color: var(--muted);
+    }
+
+    .hint {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 860px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>CarePlan MVP</h1>
+    <p class="subtitle">
+      这是一个最小可运行版本：前端表单提交后，同步调用后端生成 care plan，结果直接显示在页面上。数据只保存在 Python 内存里，重启服务后会清空。
+    </p>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Create Order</h2>
+        <form id="order-form">
+          <label>
+            Patient First Name
+            <input name="patient_first_name" value="Alice">
+          </label>
+
+          <label>
+            Patient Last Name
+            <input name="patient_last_name" value="Brown">
+          </label>
+
+          <label>
+            Referring Provider
+            <input name="referring_provider" value="Dr. Smith">
+          </label>
+
+          <label>
+            Referring Provider NPI
+            <input name="referring_provider_npi" value="1234567890">
+          </label>
+
+          <label>
+            Patient MRN
+            <input name="patient_mrn" value="123456">
+          </label>
+
+          <label>
+            Patient Primary Diagnosis
+            <input name="patient_primary_diagnosis" value="G35 Multiple sclerosis">
+          </label>
+
+          <label>
+            Medication Name
+            <input name="medication_name" value="Ocrelizumab">
+          </label>
+
+          <label>
+            Additional Diagnosis
+            <textarea name="additional_diagnosis">Hypertension</textarea>
+          </label>
+
+          <label>
+            Medication History
+            <textarea name="medication_history">Vitamin D, amlodipine</textarea>
+          </label>
+
+          <label>
+            Patient Records
+            <textarea name="patient_records">Past infusion tolerated well. No known drug allergies.</textarea>
+          </label>
+
+          <button type="submit">Submit And Generate Care Plan</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Result</h2>
+        <p class="status" id="status">还没有提交。提交后这里会显示 care plan。</p>
+        <pre id="result">No result yet.</pre>
+
+        <h2 style="margin-top: 22px;">Lookup Existing Order</h2>
+        <div class="lookup-row">
+          <input id="lookup-order-id" placeholder="Enter order id, e.g. 1">
+          <button id="lookup-button" type="button">Get Order</button>
+        </div>
+
+        <p class="hint">
+          如果设置了 <code>OPENAI_API_KEY</code>，会调用真实 LLM；如果没设置，会返回一个 demo care plan，方便你先把整条流程跑通。
+        </p>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("order-form");
+    const statusEl = document.getElementById("status");
+    const resultEl = document.getElementById("result");
+    const lookupButton = document.getElementById("lookup-button");
+    const lookupInput = document.getElementById("lookup-order-id");
+
+    function formToJson(formElement) {
+      const formData = new FormData(formElement);
+      return Object.fromEntries(formData.entries());
+    }
+
+    function showOrderResult(data) {
+      statusEl.textContent = `${data.message}，这是你的 care plan。`;
+      resultEl.textContent = `Order ID: ${data.order_id}\n\n${data.care_plan}`;
+      lookupInput.value = data.order_id;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      statusEl.textContent = "正在生成 care plan，请稍等 10 几秒...";
+      resultEl.textContent = "Loading...";
+
+      const payload = formToJson(form);
+      const response = await fetch("/api/orders/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      showOrderResult(data);
+    });
+
+    lookupButton.addEventListener("click", async () => {
+      const orderId = lookupInput.value.trim();
+      if (!orderId) {
+        statusEl.textContent = "先输入一个 order id。";
+        return;
+      }
+
+      statusEl.textContent = `正在读取订单 ${orderId}...`;
+      resultEl.textContent = "Loading...";
+
+      const response = await fetch(`/api/orders/${orderId}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        statusEl.textContent = data.message || "读取失败";
+        resultEl.textContent = JSON.stringify(data, null, 2);
+        return;
+      }
+
+      statusEl.textContent = data.message;
+      resultEl.textContent = `Order ID: ${data.order_id}\n\n${data.care_plan}`;
+    });
+  </script>
+</body>
+</html>
